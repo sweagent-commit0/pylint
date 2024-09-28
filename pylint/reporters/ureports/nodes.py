@@ -1,25 +1,17 @@
-# Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
-# For details: https://github.com/pylint-dev/pylint/blob/main/LICENSE
-# Copyright (c) https://github.com/pylint-dev/pylint/blob/main/CONTRIBUTORS.txt
-
 """Micro reports objects.
 
 A micro report is a tree of layout and content objects.
 """
-
 from __future__ import annotations
-
 from collections.abc import Iterable, Iterator
 from typing import Any, Callable, TypeVar
-
 from pylint.reporters.ureports.base_writer import BaseWriter
-
-_T = TypeVar("_T")
-_VNodeT = TypeVar("_VNodeT", bound="VNode")
+_T = TypeVar('_T')
+_VNodeT = TypeVar('_VNodeT', bound='VNode')
 VisitLeaveFunction = Callable[[_T, Any, Any], None]
 
-
 class VNode:
+
     def __init__(self) -> None:
         self.parent: BaseLayout | None = None
         self.children: list[VNode] = []
@@ -28,19 +20,6 @@ class VNode:
     def __iter__(self) -> Iterator[VNode]:
         return iter(self.children)
 
-    def accept(self: _VNodeT, visitor: BaseWriter, *args: Any, **kwargs: Any) -> None:
-        func: VisitLeaveFunction[_VNodeT] = getattr(
-            visitor, f"visit_{self.visitor_name}"
-        )
-        return func(self, *args, **kwargs)
-
-    def leave(self: _VNodeT, visitor: BaseWriter, *args: Any, **kwargs: Any) -> None:
-        func: VisitLeaveFunction[_VNodeT] = getattr(
-            visitor, f"leave_{self.visitor_name}"
-        )
-        return func(self, *args, **kwargs)
-
-
 class BaseLayout(VNode):
     """Base container node.
 
@@ -48,7 +27,7 @@ class BaseLayout(VNode):
     * children : components in this table (i.e. the table's cells)
     """
 
-    def __init__(self, children: Iterable[Text | str] = ()) -> None:
+    def __init__(self, children: Iterable[Text | str]=()) -> None:
         super().__init__()
         for child in children:
             if isinstance(child, VNode):
@@ -58,29 +37,19 @@ class BaseLayout(VNode):
 
     def append(self, child: VNode) -> None:
         """Add a node to children."""
-        assert child not in self.parents()
-        self.children.append(child)
-        child.parent = self
+        pass
 
     def insert(self, index: int, child: VNode) -> None:
         """Insert a child node."""
-        self.children.insert(index, child)
-        child.parent = self
+        pass
 
     def parents(self) -> list[BaseLayout]:
         """Return the ancestor nodes."""
-        assert self.parent is not self
-        if self.parent is None:
-            return []
-        return [self.parent, *self.parent.parents()]
+        pass
 
     def add_text(self, text: str) -> None:
         """Shortcut to add text data."""
-        self.children.append(Text(text))
-
-
-# non container nodes #########################################################
-
+        pass
 
 class Text(VNode):
     """A text portion.
@@ -89,11 +58,10 @@ class Text(VNode):
     * data : the text value as an encoded or unicode string
     """
 
-    def __init__(self, data: str, escaped: bool = True) -> None:
+    def __init__(self, data: str, escaped: bool=True) -> None:
         super().__init__()
         self.escaped = escaped
         self.data = data
-
 
 class VerbatimText(Text):
     """A verbatim text, display the raw data.
@@ -101,10 +69,6 @@ class VerbatimText(Text):
     attributes :
     * data : the text value as an encoded or unicode string
     """
-
-
-# container nodes #############################################################
-
 
 class Section(BaseLayout):
     """A section.
@@ -118,30 +82,24 @@ class Section(BaseLayout):
     as a first paragraph
     """
 
-    def __init__(
-        self,
-        title: str | None = None,
-        description: str | None = None,
-        children: Iterable[Text | str] = (),
-    ) -> None:
+    def __init__(self, title: str | None=None, description: str | None=None, children: Iterable[Text | str]=()) -> None:
         super().__init__(children=children)
         if description:
             self.insert(0, Paragraph([Text(description)]))
         if title:
             self.insert(0, Title(children=(title,)))
-        self.report_id: str = ""  # Used in ReportHandlerMixin.make_reports
-
+        self.report_id: str = ''
 
 class EvaluationSection(Section):
-    def __init__(self, message: str, children: Iterable[Text | str] = ()) -> None:
+
+    def __init__(self, message: str, children: Iterable[Text | str]=()) -> None:
         super().__init__(children=children)
         title = Paragraph()
-        title.append(Text("-" * len(message)))
+        title.append(Text('-' * len(message)))
         self.append(title)
         message_body = Paragraph()
         message_body.append(Text(message))
         self.append(message_body)
-
 
 class Title(BaseLayout):
     """A title.
@@ -152,7 +110,6 @@ class Title(BaseLayout):
     A title must not contain a section nor a paragraph!
     """
 
-
 class Paragraph(BaseLayout):
     """A simple text paragraph.
 
@@ -161,7 +118,6 @@ class Paragraph(BaseLayout):
 
     A paragraph must not contains a section !
     """
-
 
 class Table(BaseLayout):
     """Some tabular data.
@@ -174,14 +130,7 @@ class Table(BaseLayout):
     * title : the table's optional title
     """
 
-    def __init__(
-        self,
-        cols: int,
-        title: str | None = None,
-        rheaders: int = 0,
-        cheaders: int = 0,
-        children: Iterable[Text | str] = (),
-    ) -> None:
+    def __init__(self, cols: int, title: str | None=None, rheaders: int=0, cheaders: int=0, children: Iterable[Text | str]=()) -> None:
         super().__init__(children=children)
         assert isinstance(cols, int)
         self.cols = cols
