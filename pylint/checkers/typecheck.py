@@ -46,7 +46,28 @@ def _is_owner_ignored(owner: SuccessfulInferenceResult, attrname: str | None, ig
     matches any name from the *ignored_classes* or if its qualified
     name can be found in *ignored_classes*.
     """
-    pass
+    if isinstance(owner, nodes.Module):
+        owner_name = owner.name
+        owner_module = owner
+    else:
+        owner_name = owner.name
+        owner_module = owner.root()
+
+    if owner_module.name in ignored_modules:
+        return True
+
+    for ignore_pattern in ignored_modules:
+        if re.match(ignore_pattern, owner_module.name):
+            return True
+
+    if owner_name in ignored_classes:
+        return True
+
+    if isinstance(owner, (nodes.ClassDef, nodes.FunctionDef)):
+        if owner.qname() in ignored_classes:
+            return True
+
+    return False
 
 def _similar_names(owner: SuccessfulInferenceResult, attrname: str | None, distance_threshold: int, max_choices: int) -> list[str]:
     """Given an owner and a name, try to find similar names.
@@ -54,7 +75,18 @@ def _similar_names(owner: SuccessfulInferenceResult, attrname: str | None, dista
     The similar names are searched given a distance metric and only
     a given number of choices will be returned.
     """
-    pass
+    if attrname is None:
+        return []
+
+    names = []
+    if isinstance(owner, nodes.Module):
+        names = owner.keys()
+    elif isinstance(owner, nodes.ClassDef):
+        names = owner.instance_attrs.keys() | owner.locals.keys()
+    
+    import difflib
+    similar_names = difflib.get_close_matches(attrname, names, n=max_choices, cutoff=1.0 - distance_threshold/10)
+    return similar_names
 MSGS: dict[str, MessageDefinitionTuple] = {'E1101': ('%s %r has no %r member%s', 'no-member', 'Used when a variable is accessed for a nonexistent member.', {'old_names': [('E1103', 'maybe-no-member')]}), 'I1101': ('%s %r has no %r member%s, but source is unavailable. Consider adding this module to extension-pkg-allow-list if you want to perform analysis based on run-time introspection of living objects.', 'c-extension-no-member', 'Used when a variable is accessed for non-existent member of C extension. Due to unavailability of source static analysis is impossible, but it may be performed by introspecting living objects in run-time.'), 'E1102': ('%s is not callable', 'not-callable', 'Used when an object being called has been inferred to a non callable object.'), 'E1111': ('Assigning result of a function call, where the function has no return', 'assignment-from-no-return', "Used when an assignment is done on a function call but the inferred function doesn't return anything."), 'E1120': ('No value for argument %s in %s call', 'no-value-for-parameter', 'Used when a function call passes too few arguments.'), 'E1121': ('Too many positional arguments for %s call', 'too-many-function-args', 'Used when a function call passes too many positional arguments.'), 'E1123': ('Unexpected keyword argument %r in %s call', 'unexpected-keyword-arg', "Used when a function call passes a keyword argument that doesn't correspond to one of the function's parameter names."), 'E1124': ('Argument %r passed by position and keyword in %s call', 'redundant-keyword-arg', 'Used when a function call would result in assigning multiple values to a function parameter, one value from a positional argument and one from a keyword argument.'), 'E1125': ('Missing mandatory keyword argument %r in %s call', 'missing-kwoa', 'Used when a function call does not pass a mandatory keyword-only argument.'), 'E1126': ('Sequence index is not an int, slice, or instance with __index__', 'invalid-sequence-index', 'Used when a sequence type is indexed with an invalid type. Valid types are ints, slices, and objects with an __index__ method.'), 'E1127': ('Slice index is not an int, None, or instance with __index__', 'invalid-slice-index', 'Used when a slice index is not an integer, None, or an object with an __index__ method.'), 'E1128': ('Assigning result of a function call, where the function returns None', 'assignment-from-none', 'Used when an assignment is done on a function call but the inferred function returns nothing but None.', {'old_names': [('W1111', 'old-assignment-from-none')]}), 'E1129': ("Context manager '%s' doesn't implement __enter__ and __exit__.", 'not-context-manager', "Used when an instance in a with statement doesn't implement the context manager protocol(__enter__/__exit__)."), 'E1130': ('%s', 'invalid-unary-operand-type', 'Emitted when a unary operand is used on an object which does not support this type of operation.'), 'E1131': ('%s', 'unsupported-binary-operation', 'Emitted when a binary arithmetic operation between two operands is not supported.'), 'E1132': ('Got multiple values for keyword argument %r in function call', 'repeated-keyword', 'Emitted when a function call got multiple values for a keyword.'), 'E1135': ("Value '%s' doesn't support membership test", 'unsupported-membership-test', "Emitted when an instance in membership test expression doesn't implement membership protocol (__contains__/__iter__/__getitem__)."), 'E1136': ("Value '%s' is unsubscriptable", 'unsubscriptable-object', "Emitted when a subscripted value doesn't support subscription (i.e. doesn't define __getitem__ method or __class_getitem__ for a class)."), 'E1137': ('%r does not support item assignment', 'unsupported-assignment-operation', "Emitted when an object does not support item assignment (i.e. doesn't define __setitem__ method)."), 'E1138': ('%r does not support item deletion', 'unsupported-delete-operation', "Emitted when an object does not support item deletion (i.e. doesn't define __delitem__ method)."), 'E1139': ('Invalid metaclass %r used', 'invalid-metaclass', 'Emitted whenever we can detect that a class is using, as a metaclass, something which might be invalid for using as a metaclass.'), 'E1141': ('Unpacking a dictionary in iteration without calling .items()', 'dict-iter-missing-items', 'Emitted when trying to iterate through a dict without calling .items()'), 'E1142': ("'await' should be used within an async function", 'await-outside-async', 'Emitted when await is used outside an async function.'), 'E1143': ("'%s' is unhashable and can't be used as a %s in a %s", 'unhashable-member', "Emitted when a dict key or set member is not hashable (i.e. doesn't define __hash__ method).", {'old_names': [('E1140', 'unhashable-dict-key')]}), 'E1144': ('Slice step cannot be 0', 'invalid-slice-step', "Used when a slice step is 0 and the object doesn't implement a custom __getitem__ method."), 'W1113': ('Keyword argument before variable positional arguments list in the definition of %s function', 'keyword-arg-before-vararg', 'When defining a keyword argument before variable positional arguments, one can end up in having multiple values passed for the aforementioned parameter in case the method is called with keyword arguments.'), 'W1114': ('Positional arguments appear to be out of order', 'arguments-out-of-order', "Emitted  when the caller's argument names fully match the parameter names in the function signature but do not have the same order."), 'W1115': ('Non-string value assigned to __name__', 'non-str-assignment-to-dunder-name', 'Emitted when a non-string value is assigned to __name__'), 'W1116': ('Second argument of isinstance is not a type', 'isinstance-second-argument-not-valid-type', 'Emitted when the second argument of an isinstance call is not a type.'), 'W1117': ('%r will be included in %r since a positional-only parameter with this name already exists', 'kwarg-superseded-by-positional-arg', 'Emitted when a function is called with a keyword argument that has the same name as a positional-only parameter and the function contains a keyword variadic parameter dict.')}
 SEQUENCE_TYPES = {'str', 'unicode', 'list', 'tuple', 'bytearray', 'xrange', 'range', 'bytes', 'memoryview'}
 
@@ -71,11 +103,43 @@ def _emit_no_member(node: nodes.Attribute | nodes.AssignAttr | nodes.DelAttr, ow
           AttributeError, Exception or bare except.
         * The node is guarded behind and `IF` or `IFExp` node
     """
-    pass
+    if isinstance(owner, astroid.FunctionDef) and owner.decorators:
+        return False
+    
+    if isinstance(owner, astroid.Instance):
+        if '__getattr__' in owner.locals or '__getattribute__' in owner.locals:
+            return False
+    
+    if isinstance(owner, astroid.Module) and owner.name in node.root().file_ignored_lines:
+        return False
+    
+    if isinstance(owner, astroid.ClassDef):
+        metaclass = owner.metaclass()
+        if metaclass and node.attrname in metaclass.locals:
+            return False
+    
+    if utils.node_ignores_exception(node, AttributeError):
+        return False
+    
+    if isinstance(node.parent, (nodes.If, nodes.IfExp)):
+        return False
+    
+    if ignored_mixins and mixin_class_rgx.match(owner_name or ''):
+        return False
+    
+    if ignored_none and isinstance(owner, nodes.Const) and owner.value is None:
+        return False
+    
+    return True
 
 def _has_parent_of_type(node: nodes.Call, node_type: nodes.Keyword | nodes.Starred, statement: _base_nodes.Statement) -> bool:
     """Check if the given node has a parent of the given type."""
-    pass
+    parent = node.parent
+    while parent and parent != statement:
+        if isinstance(parent, node_type):
+            return True
+        parent = parent.parent
+    return False
 
 def _no_context_variadic(node: nodes.Call, variadic_name: str | None, variadic_type: nodes.Keyword | nodes.Starred, variadics: list[nodes.Keyword | nodes.Starred]) -> bool:
     """Verify if the given call node has variadic nodes without context.
@@ -88,7 +152,15 @@ def _no_context_variadic(node: nodes.Call, variadic_name: str | None, variadic_t
     This can lead pylint to believe that a function call receives
     too few arguments.
     """
-    pass
+    if not variadic_name:
+        return False
+    
+    for variadic in variadics:
+        if isinstance(variadic, variadic_type) and variadic.name == variadic_name:
+            inferred = safe_infer(variadic.value)
+            if isinstance(inferred, (astroid.Tuple, astroid.Dict)) and not inferred.elts:
+                return True
+    return False
 
 def _infer_from_metaclass_constructor(cls: nodes.ClassDef, func: nodes.FunctionDef) -> InferenceResult | None:
     """Try to infer what the given *func* constructor is building.
@@ -107,7 +179,23 @@ def _infer_from_metaclass_constructor(cls: nodes.ClassDef, func: nodes.FunctionD
         if we couldn't infer it.
     :rtype: astroid.ClassDef
     """
-    pass
+    if len(func.args.args) != 3:
+        return None
+
+    for return_node in func.nodes_of_class(nodes.Return):
+        if not return_node.value:
+            continue
+
+        inferred = safe_infer(return_node.value)
+        if not inferred:
+            continue
+
+        if isinstance(inferred, nodes.ClassDef):
+            return inferred
+        if isinstance(inferred, nodes.FunctionDef):
+            return _infer_from_metaclass_constructor(cls, inferred)
+
+    return None
 
 class TypeChecker(BaseChecker):
     """Try to find bugs in the code using type inference."""

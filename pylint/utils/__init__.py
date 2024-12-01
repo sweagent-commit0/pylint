@@ -13,7 +13,6 @@ from pylint.utils.linterstats import LinterStats, ModuleStats, merge_stats
 from pylint.utils.utils import (
     HAS_ISORT_5,
     IsortDriver,
-    _check_csv,
     _check_regexp_csv,
     _splitstrip,
     _unquote,
@@ -32,7 +31,7 @@ __all__ = [
     "ASTWalker",
     "HAS_ISORT_5",
     "IsortDriver",
-    "_check_csv",
+    "_check_regexp_csv",
     "_check_regexp_csv",
     "_splitstrip",
     "_unquote",
